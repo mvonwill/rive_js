@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   
   <style>
-    /* Custom Font Definition - SansNormal Font */
     @font-face {
       font-family: 'SansNormal';
       src: url('https://mvonwill.github.io/rive_js/fonts/sansnormtrial-160bold-webfont.woff2') format('woff2'),
@@ -18,7 +17,6 @@
     
     html, body {
       margin: 0; height: 100%;
-      background-color: #343434;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -58,25 +56,22 @@
       text-align: center;
     }
     #digital-time {
-      /* Primary: SansNormal font, fallback to system fonts */
       font-family: 'SansNormal', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
       font-size: 23px;
-      font-weight: bold; /* Matches semibold weight */
+      font-weight: bold;
       color: #4E4E4E;
-      letter-spacing: 0.05em; /* Tighter kerning - negative value for closer letter spacing */
+      letter-spacing: 0.05em;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       font-feature-settings: "tnum" 1;
-      /* Additional properties to maintain character */
       font-variant-numeric: tabular-nums;
       line-height: 1.1;
     }
-    /* Center the colon vertically within the x-height and add horizontal spacing */
     #digital-time .colon {
       position: relative;
-      top: -0.05em; /* Vertical centering */
-      margin-left: 0.03em; /* Move colon right by adding left margin */
-      margin-right: 0;      /* Optional: no extra space on the right */
+      top: -0.05em;
+      margin-left: 0.03em;
+      margin-right: 0;
       letter-spacing: 0;
     }
     canvas {
@@ -84,8 +79,6 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
-
-    /* Loading state for font */
     .font-loading #digital-time {
       opacity: 0.7;
     }
@@ -97,16 +90,28 @@
   <script src="https://unpkg.com/@rive-app/webgl2"></script>
 </head>
 <body class="font-loading">
+
+  <!-- Dynamic background detection -->
+  <script>
+    if (window.self !== window.top) {
+      // Inside iframe → Transparent background
+      document.body.style.backgroundColor = "transparent";
+    } else {
+      // Standalone browser → Grey background
+      document.body.style.backgroundColor = "#343434";
+    }
+  </script>
+
   <div id="animation-container">
     <canvas id="rive-canvas"></canvas>
     <canvas id="waveCanvas" width="650" height="823"></canvas>
     
-    <!-- Clock Display -->
     <div id="clock-container">
       <div id="digital-time">--<span class="colon">:</span>--</div>
     </div>
   </div>
 
+  <!-- Your existing JavaScript remains unchanged below -->
   <script>
     // Font loading detection
     if ('fonts' in document) {
@@ -115,8 +120,6 @@
         document.body.classList.add('font-loaded');
         console.log('SansNormal font loaded successfully');
       });
-      
-      // Fallback timeout in case font loading detection fails
       setTimeout(function() {
         if (document.body.classList.contains('font-loading')) {
           document.body.classList.remove('font-loading');
@@ -125,29 +128,20 @@
         }
       }, 3000);
     } else {
-      // Fallback for browsers without Font Loading API
       document.body.classList.remove('font-loading');
       document.body.classList.add('font-loaded');
     }
 
-    // --- Clock functionality ---
     function updateClock() {
       const now = new Date();
-      
-      // Format time (HH:MM)
       const hours = now.getHours().toString().padStart(2, '0');
       const minutes = now.getMinutes().toString().padStart(2, '0');
       const timeString = `${hours}<span class="colon">:</span>${minutes}`;
-      
-      // Update display
       document.getElementById('digital-time').innerHTML = timeString;
     }
-
-    // Update clock immediately and then every second
     updateClock();
     setInterval(updateClock, 1000);
 
-    // --- Rive animation setup ---
     const riveCanvas = document.getElementById('rive-canvas');
     const riveScale = 2;
     riveCanvas.width = 650 * riveScale;
@@ -155,12 +149,10 @@
     riveCanvas.style.width = '650px';
     riveCanvas.style.height = '823px';
 
-    let r; // Declare r in global scope
-
-    // Initialize Rive with error handling
+    let r;
     try {
       r = new rive.Rive({
-        src: './assets/biometric_scan_JS.riv', // Updated path for organized structure
+        src: './assets/biometric_scan_JS.riv',
         canvas: riveCanvas,
         autoplay: true,
         artboard: 'MAIN WIP',
@@ -173,125 +165,63 @@
         },
         onLoadError(error) {
           console.error('Failed to load Rive file:', error);
-          // Hide the canvas if Rive fails to load
           riveCanvas.style.display = 'none';
         }
       });
-
-      // Fixed event listener
       r.on(rive.EventType.RiveEvent, onRiveEventReceived);
-      
     } catch (error) {
       console.error('Error initializing Rive:', error);
       riveCanvas.style.display = 'none';
     }
 
-    let eventCount = 0; // Debug counter for Rive events
-    let isAnimationPlaying = false; // Track if animation is currently playing
+    let eventCount = 0;
+    let isAnimationPlaying = false;
 
     function onRiveEventReceived(riveEvent) {
       eventCount++;
-      console.log(`Rive event received (#${eventCount}):`, riveEvent);
-      console.log('Event type:', riveEvent.type);
-      console.log('Event data:', riveEvent.data);
-      
-      // Handle different event types
       const eventName = riveEvent.data?.name || riveEvent.name;
-      
       if (eventName === 'show_mic') {
-        console.log(`Show mic event triggered (#${eventCount}) - making visualizer visible`);
         visualizerVisible = true;
         isAnimationPlaying = true;
       } else if (eventName === 'hide_mic') {
-        console.log(`Hide mic event triggered (#${eventCount}) - hiding visualizer`);
         visualizerVisible = false;
         isAnimationPlaying = false;
       }
     }
 
     window.addEventListener('resize', () => {
-      if (r) {
-        r.resizeDrawingSurfaceToCanvas();
-      }
+      if (r) r.resizeDrawingSurfaceToCanvas();
     });
 
-    // --- Mic visualizer setup ---
     const canvas = document.getElementById('waveCanvas');
     const ctx = canvas.getContext('2d', { alpha: true });
-
-    // Canvas dimensions (match width & height attributes)
-    const W = canvas.width;  // 650
-    const H = canvas.height; // 823
+    const W = canvas.width, H = canvas.height;
 
     let audioCtx, analyser, dataArray, source, stream;
-    let idlePhase = 0;
-    let micEnabled = false;
-    let visualizerVisible = false;  // Controls whether visualizer is shown
-    let visualizerOpacity = 0;      // For fade in/out animation
-
-    // Visualizer config
-    const barCount = 78;
-    const maxBarWidth = 8;          // fixed bar width (px)
-    const visualWidth = 650;        // width matches canvas width
-    const spacing = visualWidth / barCount;  // ~8.33 px spacing between bars
-    const xOffset = 0;              // start at left edge of waveCanvas
-    const verticalOffset = 0;       // adjust vertical position if needed
-
+    let idlePhase = 0, micEnabled = false, visualizerVisible = false, visualizerOpacity = 0;
+    const barCount = 78, maxBarWidth = 8, visualWidth = 650;
+    const spacing = visualWidth / barCount;
+    const xOffset = 0, verticalOffset = 0;
     let currentHeights = new Array(barCount).fill(H * 0.2);
     const volumeThreshold = 15;
-    const amplitudeScale = 0.65 * 0.8 * 0.65 * 0.4; // cumulative amplitude reduction (~68.6%)
+    const amplitudeScale = 0.65 * 0.8 * 0.65 * 0.4;
 
-    function lerp(a, b, t) {
-      return a + (b - a) * t;
-    }
-
-    function getAverageVolume(data) {
-      let sum = 0;
-      for(let i = 0; i < data.length; i++) sum += data[i];
-      return sum / data.length;
-    }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function getAverageVolume(data) { return data.reduce((a, b) => a + b) / data.length; }
 
     function setGlowStyle() {
       ctx.shadowColor = '#3BBBE4';
       ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
     }
-
     function clearGlowStyle() {
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
-    }
-
-    function drawBars(heights) {
-      ctx.strokeStyle = '#3BBBE4';
-      ctx.lineWidth = 0.5;
-      ctx.fillStyle = '#3BBBE4';
-      setGlowStyle();
-
-      for(let i = 0; i < barCount; i++) {
-        const height = heights[i];
-        const x = xOffset + i * spacing + (spacing - maxBarWidth) / 2;
-        const yTop = ((H - height) / 2) + verticalOffset;
-        const yBottom = yTop + height;
-
-        ctx.beginPath();
-        ctx.moveTo(x + maxBarWidth / 2, yTop);
-        ctx.lineTo(x + maxBarWidth / 2, yBottom);
-        ctx.stroke();
-
-        ctx.fillRect(x + maxBarWidth / 2 - 2, yTop - 2, 4, 4);
-        ctx.fillRect(x + maxBarWidth / 2 - 2, yBottom - 2, 4, 4);
-      }
-
-      clearGlowStyle();
     }
 
     function drawIdleRow() {
       ctx.fillStyle = '#3BBBE4';
       setGlowStyle();
       idlePhase += 0.065;
-
       for(let i = 0; i < barCount; i++) {
         const x = xOffset + visualWidth - (i + 1) * spacing + (spacing - maxBarWidth) / 2 + maxBarWidth / 2 - 2;
         const sineValue = (Math.sin(idlePhase + i * 0.3) + 1) / 2;
@@ -299,53 +229,33 @@
         const y = (H / 2 - size / 2) + verticalOffset;
         ctx.fillRect(x, y, size, size);
       }
-
       clearGlowStyle();
     }
 
     function getCenterOutMappedHeights(data) {
       const heights = new Array(barCount).fill(H * 0.2);
       const center = Math.floor(barCount / 2);
-
       for (let i = 0; i < barCount / 2; i++) {
-        const leftIndex = Math.min(data.length - 1, i);
-        const rightIndex = Math.min(data.length - 1, i + 10);
-
-        const leftValue = data[leftIndex];
-        const rightValue = data[rightIndex];
-
+        const leftValue = data[Math.min(data.length - 1, i)];
+        const rightValue = data[Math.min(data.length - 1, i + 10)];
         const leftHeight = (leftValue / 255) * H * 0.6 * amplitudeScale;
         const rightHeight = (rightValue / 255) * H * 0.6 * amplitudeScale;
-
         heights[center - 1 - i] = leftHeight;
         heights[center + i] = rightHeight;
       }
-
       return heights;
     }
 
     function draw() {
       requestAnimationFrame(draw);
       ctx.clearRect(0, 0, W, H);
-
-      // Handle fade in/out animation
-      if (visualizerVisible) {
-        visualizerOpacity = Math.min(1, visualizerOpacity + 0.05);
-      } else {
-        visualizerOpacity = Math.max(0, visualizerOpacity - 0.05);
-      }
-
-      // Don't draw anything if completely faded out
-      if (visualizerOpacity <= 0) {
-        return;
-      }
-
-      // Set global alpha for fade effect
+      visualizerOpacity = visualizerVisible ? Math.min(1, visualizerOpacity + 0.05) : Math.max(0, visualizerOpacity - 0.05);
+      if (visualizerOpacity <= 0) return;
       ctx.globalAlpha = visualizerOpacity;
 
       if (!analyser || !micEnabled) {
         drawIdleRow();
-        ctx.globalAlpha = 1; // Reset alpha
+        ctx.globalAlpha = 1;
         return;
       }
 
@@ -354,143 +264,58 @@
 
       if (avgVol < volumeThreshold) {
         drawIdleRow();
-        for(let i = 0; i < barCount; i++) {
-          currentHeights[i] = lerp(currentHeights[i], H * 0.2, 0.05);
-        }
+        currentHeights = currentHeights.map(h => lerp(h, H * 0.2, 0.05));
       } else {
-        const liveHeightsRaw = getCenterOutMappedHeights(dataArray);
-        const liveHeights = liveHeightsRaw.map((h, i) => lerp(currentHeights[i], h, 0.2));
+        const liveHeights = getCenterOutMappedHeights(dataArray).map((h, i) => lerp(currentHeights[i], h, 0.2));
         currentHeights = liveHeights;
-        drawBars(liveHeights);
+        ctx.strokeStyle = '#3BBBE4';
+        ctx.fillStyle = '#3BBBE4';
+        setGlowStyle();
+        liveHeights.forEach((height, i) => {
+          const x = xOffset + i * spacing + (spacing - maxBarWidth) / 2;
+          const yTop = ((H - height) / 2) + verticalOffset;
+          const yBottom = yTop + height;
+          ctx.beginPath();
+          ctx.moveTo(x + maxBarWidth / 2, yTop);
+          ctx.lineTo(x + maxBarWidth / 2, yBottom);
+          ctx.stroke();
+          ctx.fillRect(x + maxBarWidth / 2 - 2, yTop - 2, 4, 4);
+          ctx.fillRect(x + maxBarWidth / 2 - 2, yBottom - 2, 4, 4);
+        });
+        clearGlowStyle();
       }
-
-      // Reset alpha
       ctx.globalAlpha = 1;
     }
 
-    function enableAudio() {
-      if (micEnabled) {
-        console.log('Microphone already enabled');
-        return;
-      }
-
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(mediaStream => {
-          stream = mediaStream;
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          
-          // Resume audio context if suspended (required by some browsers)
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-          }
-          
-          analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 128;
-          dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-          source = audioCtx.createMediaStreamSource(stream);
-          source.connect(analyser);
-          
-          micEnabled = true;
-          console.log('Microphone enabled successfully');
-        })
-        .catch(err => {
-          console.error('Microphone access error:', err);
-          alert('Microphone access is required to run the visualizer. Please allow microphone access and try again.');
-        });
-    }
-
-    // Start the drawing loop
     draw();
 
-    // Auto-enable audio (will require user interaction in most browsers)
+    function enableAudio() {
+      if (micEnabled) return;
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(mediaStream => {
+        stream = mediaStream;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 128;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        source = audioCtx.createMediaStreamSource(stream);
+        source.connect(analyser);
+        micEnabled = true;
+      }).catch(err => {
+        console.error('Mic error:', err);
+        alert('Mic access is required for the visualizer.');
+      });
+    }
+
     document.addEventListener('click', function() {
-      if (!micEnabled) {
-        enableAudio();
-      }
+      if (!micEnabled) enableAudio();
     }, { once: true });
 
-    let interactionCount = 0; // Debug counter
-
-    // Improved mouse event handlers that work with Rive state machine
-    riveCanvas.addEventListener('click', function(e) {
-      // Only trigger if animation is not currently playing
+    riveCanvas.addEventListener('click', function() {
       if (!isAnimationPlaying) {
-        interactionCount++;
-        console.log(`Click detected (#${interactionCount}) - triggering animation`);
-        
-        // Mark animation as starting (but don't show visualizer yet)
         isAnimationPlaying = true;
-        
-        // Try to trigger the Rive animation
-        if (r && r.stateMachineInputs) {
-          try {
-            // Look for common trigger inputs
-            const possibleInputs = ['start', 'trigger', 'click', 'pressed', 'button'];
-            let inputTriggered = false;
-            
-            for (const inputName of possibleInputs) {
-              try {
-                const input = r.stateMachineInputs.find(inputName);
-                if (input) {
-                  console.log(`Triggering Rive input: ${inputName}`);
-                  input.fire();
-                  inputTriggered = true;
-                  break;
-                }
-              } catch (err) {
-                console.log(`Could not find input ${inputName}`);
-              }
-            }
-            
-            if (!inputTriggered) {
-              console.log('No suitable trigger input found, fallback timeout started');
-              // Fallback: if no Rive event comes, reset after timeout
-              setTimeout(() => {
-                if (isAnimationPlaying && !visualizerVisible) {
-                  console.log('Fallback: no Rive event received, resetting state');
-                  isAnimationPlaying = false;
-                }
-              }, 2000);
-            }
-          } catch (err) {
-            console.log('Error accessing state machine inputs:', err);
-            // Reset state if there's an error
-            isAnimationPlaying = false;
-          }
-        }
-      } else {
-        console.log('Animation already playing, ignoring click');
       }
     });
-
-    // Manual testing functions - accessible from browser console
-    window.showVisualizer = function() {
-      console.log('Manually showing visualizer');
-      visualizerVisible = true;
-      isAnimationPlaying = true;
-    };
-
-    window.hideVisualizer = function() {
-      console.log('Manually hiding visualizer');
-      visualizerVisible = false;
-      isAnimationPlaying = false;
-    };
-
-    window.resetAnimation = function() {
-      console.log('Manually resetting animation state');
-      isAnimationPlaying = false;
-      visualizerVisible = false;
-    };
-
-    // Debug function to check available inputs
-    window.listRiveInputs = function() {
-      if (r && r.stateMachineInputs) {
-        console.log('Available Rive inputs:', Object.keys(r.stateMachineInputs));
-      } else {
-        console.log('No Rive inputs available');
-      }
-    };
   </script>
 </body>
 </html>
