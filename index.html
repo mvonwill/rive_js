@@ -23,22 +23,19 @@
       overflow: hidden;
       font-family: 'SansNormal', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
     }
-
     #animation-container {
       position: relative;
+      width: 650px;
+      height: 823px;
       user-select: none;
-      /* Removed width & height to allow content to define size */
     }
-
     #rive-canvas {
       position: absolute;
       top: 0; left: 0;
-      width: 650px;
-      height: 823px;
+      width: 650px; height: 823px;
       cursor: pointer;
       z-index: 0;
     }
-
     #waveCanvas {
       position: absolute;
       top: 260px;
@@ -49,7 +46,6 @@
       pointer-events: none;
       background: transparent;
     }
-
     #clock-container {
       position: absolute;
       top: 32px;
@@ -59,7 +55,6 @@
       pointer-events: none;
       text-align: center;
     }
-
     #digital-time {
       font-family: 'SansNormal', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
       font-size: 23px;
@@ -72,7 +67,6 @@
       font-variant-numeric: tabular-nums;
       line-height: 1.1;
     }
-
     #digital-time .colon {
       position: relative;
       top: -0.05em;
@@ -80,17 +74,14 @@
       margin-right: 0;
       letter-spacing: 0;
     }
-
     canvas {
       image-rendering: auto;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
-
     .font-loading #digital-time {
       opacity: 0.7;
     }
-
     .font-loaded #digital-time {
       opacity: 1;
       transition: opacity 0.3s ease;
@@ -103,8 +94,10 @@
   <!-- Dynamic background detection -->
   <script>
     if (window.self !== window.top) {
+      // Inside iframe → Transparent background
       document.body.style.backgroundColor = "transparent";
     } else {
+      // Standalone browser → Grey background
       document.body.style.backgroundColor = "#343434";
     }
   </script>
@@ -118,17 +111,20 @@
     </div>
   </div>
 
+  <!-- Your existing JavaScript remains unchanged below -->
   <script>
     // Font loading detection
     if ('fonts' in document) {
       document.fonts.ready.then(function() {
         document.body.classList.remove('font-loading');
         document.body.classList.add('font-loaded');
+        console.log('SansNormal font loaded successfully');
       });
       setTimeout(function() {
         if (document.body.classList.contains('font-loading')) {
           document.body.classList.remove('font-loading');
           document.body.classList.add('font-loaded');
+          console.log('Font loading timeout - proceeding with fallbacks');
         }
       }, 3000);
     } else {
@@ -136,7 +132,6 @@
       document.body.classList.add('font-loaded');
     }
 
-    // Clock
     function updateClock() {
       const now = new Date();
       const hours = now.getHours().toString().padStart(2, '0');
@@ -147,7 +142,6 @@
     updateClock();
     setInterval(updateClock, 1000);
 
-    // Rive setup
     const riveCanvas = document.getElementById('rive-canvas');
     const riveScale = 2;
     riveCanvas.width = 650 * riveScale;
@@ -165,19 +159,27 @@
         stateMachines: 'State Machine 1',
         fit: rive.Fit.contain,
         antialias: true,
-        onLoad() { r.resizeDrawingSurfaceToCanvas(); },
-        onLoadError(error) { riveCanvas.style.display = 'none'; }
+        onLoad() {
+          console.log('Rive animation loaded successfully');
+          r.resizeDrawingSurfaceToCanvas();
+        },
+        onLoadError(error) {
+          console.error('Failed to load Rive file:', error);
+          riveCanvas.style.display = 'none';
+        }
       });
       r.on(rive.EventType.RiveEvent, onRiveEventReceived);
     } catch (error) {
+      console.error('Error initializing Rive:', error);
       riveCanvas.style.display = 'none';
     }
 
+    let eventCount = 0;
     let isAnimationPlaying = false;
-    let visualizerVisible = false;
 
-    function onRiveEventReceived(e) {
-      const eventName = e.data?.name || e.name;
+    function onRiveEventReceived(riveEvent) {
+      eventCount++;
+      const eventName = riveEvent.data?.name || riveEvent.name;
       if (eventName === 'show_mic') {
         visualizerVisible = true;
         isAnimationPlaying = true;
@@ -187,45 +189,59 @@
       }
     }
 
-    window.addEventListener('resize', () => { if (r) r.resizeDrawingSurfaceToCanvas(); });
+    window.addEventListener('resize', () => {
+      if (r) r.resizeDrawingSurfaceToCanvas();
+    });
 
-    // Visualizer
     const canvas = document.getElementById('waveCanvas');
     const ctx = canvas.getContext('2d', { alpha: true });
     const W = canvas.width, H = canvas.height;
-    const barCount = 78, maxBarWidth = 8, spacing = 650 / barCount;
+
     let audioCtx, analyser, dataArray, source, stream;
-    let idlePhase = 0, micEnabled = false, visualizerOpacity = 0;
+    let idlePhase = 0, micEnabled = false, visualizerVisible = false, visualizerOpacity = 0;
+    const barCount = 78, maxBarWidth = 8, visualWidth = 650;
+    const spacing = visualWidth / barCount;
+    const xOffset = 0, verticalOffset = 0;
     let currentHeights = new Array(barCount).fill(H * 0.2);
     const volumeThreshold = 15;
     const amplitudeScale = 0.65 * 0.8 * 0.65 * 0.4;
 
     function lerp(a, b, t) { return a + (b - a) * t; }
-    function getAverage(data) { return data.reduce((a, b) => a + b) / data.length; }
+    function getAverageVolume(data) { return data.reduce((a, b) => a + b) / data.length; }
 
-    function drawIdleRow() {
-      ctx.fillStyle = '#3BBBE4';
+    function setGlowStyle() {
       ctx.shadowColor = '#3BBBE4';
       ctx.shadowBlur = 6;
-      idlePhase += 0.065;
-      for (let i = 0; i < barCount; i++) {
-        const x = 650 - (i + 1) * spacing + (spacing - maxBarWidth) / 2 + maxBarWidth / 2 - 2;
-        const sine = (Math.sin(idlePhase + i * 0.3) + 1) / 2;
-        const size = lerp(2, 6, sine);
-        const y = (H / 2 - size / 2);
-        ctx.fillRect(x, y, size, size);
-      }
+    }
+    function clearGlowStyle() {
+      ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
     }
 
-    function getMappedHeights(data) {
+    function drawIdleRow() {
+      ctx.fillStyle = '#3BBBE4';
+      setGlowStyle();
+      idlePhase += 0.065;
+      for(let i = 0; i < barCount; i++) {
+        const x = xOffset + visualWidth - (i + 1) * spacing + (spacing - maxBarWidth) / 2 + maxBarWidth / 2 - 2;
+        const sineValue = (Math.sin(idlePhase + i * 0.3) + 1) / 2;
+        const size = lerp(2, 6, sineValue);
+        const y = (H / 2 - size / 2) + verticalOffset;
+        ctx.fillRect(x, y, size, size);
+      }
+      clearGlowStyle();
+    }
+
+    function getCenterOutMappedHeights(data) {
       const heights = new Array(barCount).fill(H * 0.2);
       const center = Math.floor(barCount / 2);
       for (let i = 0; i < barCount / 2; i++) {
-        const l = data[Math.min(data.length - 1, i)];
-        const r = data[Math.min(data.length - 1, i + 10)];
-        heights[center - 1 - i] = (l / 255) * H * 0.6 * amplitudeScale;
-        heights[center + i] = (r / 255) * H * 0.6 * amplitudeScale;
+        const leftValue = data[Math.min(data.length - 1, i)];
+        const rightValue = data[Math.min(data.length - 1, i + 10)];
+        const leftHeight = (leftValue / 255) * H * 0.6 * amplitudeScale;
+        const rightHeight = (rightValue / 255) * H * 0.6 * amplitudeScale;
+        heights[center - 1 - i] = leftHeight;
+        heights[center + i] = rightHeight;
       }
       return heights;
     }
@@ -244,19 +260,20 @@
       }
 
       analyser.getByteFrequencyData(dataArray);
-      if (getAverage(dataArray) < volumeThreshold) {
+      const avgVol = getAverageVolume(dataArray);
+
+      if (avgVol < volumeThreshold) {
         drawIdleRow();
         currentHeights = currentHeights.map(h => lerp(h, H * 0.2, 0.05));
       } else {
-        const live = getMappedHeights(dataArray).map((h, i) => lerp(currentHeights[i], h, 0.2));
-        currentHeights = live;
+        const liveHeights = getCenterOutMappedHeights(dataArray).map((h, i) => lerp(currentHeights[i], h, 0.2));
+        currentHeights = liveHeights;
         ctx.strokeStyle = '#3BBBE4';
         ctx.fillStyle = '#3BBBE4';
-        ctx.shadowColor = '#3BBBE4';
-        ctx.shadowBlur = 6;
-        live.forEach((height, i) => {
-          const x = i * spacing + (spacing - maxBarWidth) / 2;
-          const yTop = (H - height) / 2;
+        setGlowStyle();
+        liveHeights.forEach((height, i) => {
+          const x = xOffset + i * spacing + (spacing - maxBarWidth) / 2;
+          const yTop = ((H - height) / 2) + verticalOffset;
           const yBottom = yTop + height;
           ctx.beginPath();
           ctx.moveTo(x + maxBarWidth / 2, yTop);
@@ -265,7 +282,7 @@
           ctx.fillRect(x + maxBarWidth / 2 - 2, yTop - 2, 4, 4);
           ctx.fillRect(x + maxBarWidth / 2 - 2, yBottom - 2, 4, 4);
         });
-        ctx.shadowBlur = 0;
+        clearGlowStyle();
       }
       ctx.globalAlpha = 1;
     }
@@ -274,7 +291,8 @@
 
     function enableAudio() {
       if (micEnabled) return;
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(mediaStream => {
+        stream = mediaStream;
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
         analyser = audioCtx.createAnalyser();
@@ -283,13 +301,21 @@
         source = audioCtx.createMediaStreamSource(stream);
         source.connect(analyser);
         micEnabled = true;
-      }).catch(err => { alert('Mic access is required.'); });
+      }).catch(err => {
+        console.error('Mic error:', err);
+        alert('Mic access is required for the visualizer.');
+      });
     }
 
-    document.addEventListener('click', function() { if (!micEnabled) enableAudio(); }, { once: true });
+    document.addEventListener('click', function() {
+      if (!micEnabled) enableAudio();
+    }, { once: true });
 
-    riveCanvas.addEventListener('click', function() { if (!isAnimationPlaying) isAnimationPlaying = true; });
-
+    riveCanvas.addEventListener('click', function() {
+      if (!isAnimationPlaying) {
+        isAnimationPlaying = true;
+      }
+    });
   </script>
 </body>
 </html>
