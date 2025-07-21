@@ -168,13 +168,13 @@
       const eventName = e.data?.name || e.name;
       
       if (eventName === 'show_mic') {
-        console.log(`Show mic event (#${eventCount}) - delayed 500ms fade-in`);
+        console.log(`Show mic event (#${eventCount}) - delayed 800ms fade-in`);
         isAnimationPlaying = true;
 
         clearTimeout(showMicTimeout);
         showMicTimeout = setTimeout(() => {
           visualizerVisible = true;
-        }, 500);
+        }, 800);
 
       } else if (eventName === 'hide_mic') {
         console.log(`Hide mic event (#${eventCount}) - hiding visualizer`);
