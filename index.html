@@ -2,364 +2,113 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Rive + Mic Visualizer Overlay + Clock</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mic Visualizer</title>
   <style>
-    @font-face {
-      font-family: 'SansNormal';
-      src: url('https://mvonwill.github.io/rive_js/fonts/sansnormtrial-140semibold-webfont.woff2?v=2') format('woff2'),
-           url('https://mvonwill.github.io/rive_js/fonts/sansnormtrial-140semibold-webfont.woff?v=2') format('woff');
-      font-weight: 600;
-      font-style: normal;
-      font-display: swap;
-    }
-    
     html, body {
-      margin: 0; height: 100%;
-      background-color: #343434;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      margin: 0;
+      padding: 0;
+      background: #000;
       overflow: hidden;
-      font-family: 'SansNormal';
+      width: 100%;
+      height: 100%;
     }
-    #animation-container {
+    #rive-container {
       position: relative;
-      width: 650px;
-      height: 823px;
-      user-select: none;
-    }
-    #rive-canvas {
-      position: absolute;
-      top: 0; left: 0;
-      width: 650px; height: 823px;
-      cursor: pointer;
-      z-index: 0;  
+      width: 100%;
+      height: 100vh;
     }
     #waveCanvas {
       position: absolute;
-      top: 255px;
-      left: 107px;
-      width: 436px;
-      height: 823px;
-      z-index: 2;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100px;
       pointer-events: none;
-      background: transparent;
     }
-    #clock-container {
-      position: absolute;
-      top: 30.5px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 3;
-      pointer-events: none;
-      text-align: center;
-    }
-    #digital-time {
-      font-family: 'SansNormal', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
-      font-size: 20.4px;
-      font-weight: 600;
-      color: #434343;
-      letter-spacing: 0.02em;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      font-feature-settings: "tnum" 1;
-      font-variant-numeric: tabular-nums;
-      line-height: 1.1;
-    }
-    #digital-time .colon {
-      position: relative;
-      top: -0.05em;
-      margin-left: 0.0em;
-      margin-right: 0;
-      letter-spacing: 0; 
-    }
-    canvas {
-      image-rendering: auto;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-    .font-loading #digital-time { opacity: 0.7; }
-    .font-loaded #digital-time { opacity: 1; transition: opacity 0.3s ease; }
   </style>
-
-  <script src="https://unpkg.com/@rive-app/webgl2"></script>
 </head>
-<body class="font-loading">
-  <div id="animation-container">
-    <canvas id="rive-canvas"></canvas>
-    <canvas id="waveCanvas" width="650" height="823"></canvas>
-    
-    <div id="clock-container">
-      <div id="digital-time">--<span class="colon">:</span>--</div>
-    </div>
+<body>
+  <div id="rive-container">
+    <canvas id="waveCanvas"></canvas>
   </div>
 
+  <script src="https://unpkg.com/@rive-app/webgl@2.8.3"></script>
   <script>
-    // Font loading
-    if ('fonts' in document) {
-      document.fonts.ready.then(() => {
-        document.body.classList.replace('font-loading', 'font-loaded');
-        console.log('SansNormal font loaded successfully');
-      });
-      setTimeout(() => {
-        if (document.body.classList.contains('font-loading')) {
-          document.body.classList.replace('font-loading', 'font-loaded');
-          console.log('Font loading timeout - proceeding with fallbacks');
-        }
-      }, 3000);
-    } else {
-      document.body.classList.replace('font-loading', 'font-loaded');
-    }
+    let riveInstance;
+    const riveContainer = document.getElementById("rive-container");
 
-    // Clock
-    function updateClock() {
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      document.getElementById('digital-time').innerHTML = `${hours}<span class="colon">:</span>${minutes}`;
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
+    new rive.Rive({
+      src: "https://mvonwill.github.io/rive_js/assets/biometric_scan_JS.riv",
+      canvas: undefined,
+      autoplay: true,
+      onLoad: (instance) => {
+        riveInstance = instance;
+      },
+    });
+  </script>
 
-    // Rive
-    const riveCanvas = document.getElementById('rive-canvas');
-    const riveScale = 2;
-    riveCanvas.width = 650 * riveScale;
-    riveCanvas.height = 823 * riveScale;
-    riveCanvas.style.width = '650px';
-    riveCanvas.style.height = '823px';
-
-    let r;
-    let showMicTimeout;
-
-    try {
-      r = new rive.Rive({
-        src: './assets/biometric_scan_js.riv',
-        canvas: riveCanvas,
-        autoplay: true,
-        artboard: 'MAIN WIP',
-        stateMachines: 'State Machine 1',
-        fit: rive.Fit.contain,
-        antialias: true,
-        onLoad() {
-          console.log('Rive animation loaded');
-          r.resizeDrawingSurfaceToCanvas();
-        },
-        onLoadError(e) {
-          console.error('Rive load error:', e);
-          riveCanvas.style.display = 'none';
-        }
-      });
-
-      r.on(rive.EventType.RiveEvent, onRiveEventReceived);
-
-    } catch (e) {
-      console.error('Rive init error:', e);
-      riveCanvas.style.display = 'none';
-    }
-
-    let eventCount = 0;
-    let isAnimationPlaying = false;
-    let visualizerScheduled = false;
-
-    function onRiveEventReceived(e) {
-      eventCount++;
-      const eventName = e.data?.name || e.name;
-      
-      if (eventName === 'show_mic') {
-        console.log(`Show mic event (#${eventCount})`);
-        
-        // Only schedule if not already scheduled
-        if (!visualizerScheduled) {
-          console.log(`Scheduling visualizer fade-in for 1950ms`);
-          isAnimationPlaying = true;
-          visualizerScheduled = true;
-
-          clearTimeout(showMicTimeout);
-          showMicTimeout = setTimeout(() => {
-            console.log(`Visualizer fade-in triggered`);
-            visualizerVisible = true;
-            visualizerScheduled = false;
-          }, 1950);
-        } else {
-          console.log(`Visualizer already scheduled - ignoring duplicate show_mic`);
-        }
-
-      } else if (eventName === 'hide_mic') {
-        console.log(`Hide mic event (#${eventCount}) - hiding visualizer`);
-        clearTimeout(showMicTimeout);
-        visualizerVisible = false;
-        isAnimationPlaying = false;
-        visualizerScheduled = false;
-      }
-    }
-
-    window.addEventListener('resize', () => { if (r) r.resizeDrawingSurfaceToCanvas(); });
-
-    // Visualizer
-    const canvas = document.getElementById('waveCanvas');
-    const ctx = canvas.getContext('2d', { alpha: true });
-    const W = canvas.width;
-    const H = canvas.height;
+  <script>
+    const canvas = document.getElementById("waveCanvas");
+    const ctx = canvas.getContext("2d");
 
     let audioCtx, analyser, dataArray, source, stream;
-    let idlePhase = 0;
     let micEnabled = false;
-    let visualizerVisible = false;
-    let visualizerOpacity = 0;
 
-    const barCount = 78;
-    const maxBarWidth = 8;
-    const spacing = W / barCount;
-    const amplitudeScale = 0.65 * 0.8 * 0.65 * 0.4;
+    async function enableAudio() {
+      if (micEnabled) return;
 
-    let currentHeights = new Array(barCount).fill(H * 0.2);
-    const volumeThreshold = 15;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    function lerp(a, b, t) { return a + (b - a) * t; }
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        await audioCtx.resume(); // ✅ Key for mobile
 
-    function setGlow() {
-      ctx.shadowColor = '#3BBBE4';
-      ctx.shadowBlur = 6;
-    }
-    function clearGlow() {
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-    }
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 128;
 
-    function drawBars(heights) {
-      ctx.strokeStyle = '#3BBBE4';
-      ctx.lineWidth = 0.5;
-      ctx.fillStyle = '#3BBBE4';
-      setGlow();
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        source = audioCtx.createMediaStreamSource(stream);
+        source.connect(analyser);
 
-      for (let i = 0; i < barCount; i++) {
-        const height = heights[i];
-        const x = i * spacing + (spacing - maxBarWidth) / 2;
-        const yTop = (H - height) / 2;
-        const yBottom = yTop + height;
-
-        ctx.beginPath();
-        ctx.moveTo(x + maxBarWidth / 2, yTop);
-        ctx.lineTo(x + maxBarWidth / 2, yBottom);
-        ctx.stroke();
-
-        ctx.fillRect(x + maxBarWidth / 2 - 2, yTop - 2, 4, 4);
-        ctx.fillRect(x + maxBarWidth / 2 - 2, yBottom - 2, 4, 4);
+        micEnabled = true;
+        console.log("Mic enabled");
+      } catch (err) {
+        console.error("Mic error:", err);
+        alert("Mic permission required for audio visualizer.");
       }
-
-      clearGlow();
     }
 
-    function drawIdleRow() {
-      ctx.fillStyle = '#3BBBE4';
-      setGlow();
-      idlePhase += 0.065;
-
-      for (let i = 0; i < barCount; i++) {
-        const x = W - (i + 1) * spacing + (spacing - maxBarWidth) / 2 + maxBarWidth / 2 - 2;
-        const sineValue = (Math.sin(idlePhase + i * 0.3) + 1) / 2;
-        const size = lerp(2, 6, sineValue);
-        const y = H / 2 - size / 2;
-        ctx.fillRect(x, y, size, size);
-      }
-
-      clearGlow();
-    }
-
-    function getCenterOutHeights(data) {
-      const h = new Array(barCount).fill(H * 0.2);
-      const center = Math.floor(barCount / 2);
-      for (let i = 0; i < barCount / 2; i++) {
-        const l = data[Math.min(data.length - 1, i)];
-        const r = data[Math.min(data.length - 1, i + 10)];
-        h[center - 1 - i] = (l / 255) * H * 0.6 * amplitudeScale;
-        h[center + i] = (r / 255) * H * 0.6 * amplitudeScale;
-      }
-      return h;
-    }
-
-    function draw() {
-      requestAnimationFrame(draw);
-      ctx.clearRect(0, 0, W, H);
-
-      if (visualizerVisible) {
-        visualizerOpacity = Math.min(1, visualizerOpacity + 0.05);
-      } else {
-        visualizerOpacity = Math.max(0, visualizerOpacity - 0.05);
-      }
-
-      if (visualizerOpacity <= 0) return;
-
-      ctx.globalAlpha = visualizerOpacity;
-
-      if (!analyser || !micEnabled) {
-        drawIdleRow();
-        ctx.globalAlpha = 1;
-        return;
-      }
+    function drawBars() {
+      requestAnimationFrame(drawBars);
+      if (!analyser) return;
 
       analyser.getByteFrequencyData(dataArray);
-      const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
 
-      if (avg < volumeThreshold) {
-        drawIdleRow();
-        for (let i = 0; i < barCount; i++) {
-          currentHeights[i] = lerp(currentHeights[i], H * 0.2, 0.05);
-        }
-      } else {
-        const live = getCenterOutHeights(dataArray);
-        for (let i = 0; i < barCount; i++) {
-          currentHeights[i] = lerp(currentHeights[i], live[i], 0.2);
-        }
-        drawBars(currentHeights);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const barWidth = canvas.width / dataArray.length;
+      for (let i = 0; i < dataArray.length; i++) {
+        const value = dataArray[i];
+        const barHeight = value;
+        ctx.fillStyle = `rgb(${value + 100},50,200)`;
+        ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 1, barHeight);
       }
-
-      ctx.globalAlpha = 1;
     }
 
-    draw();
-
-    function enableAudio() {
-      if (micEnabled) return;
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          if (audioCtx.state === 'suspended') audioCtx.resume();
-          analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 128;
-          dataArray = new Uint8Array(analyser.frequencyBinCount);
-          source = audioCtx.createMediaStreamSource(stream);
-          source.connect(analyser);
-          micEnabled = true;
-        })
-        .catch(err => {
-          console.error('Mic error:', err);
-          alert('Mic permission required.');
-        });
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = 100;
     }
 
-    document.addEventListener('click', () => { if (!micEnabled) enableAudio(); }, { once: true });
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
 
-    riveCanvas.addEventListener('click', () => {
-      if (!isAnimationPlaying) {
-        isAnimationPlaying = true;
-        if (r && r.stateMachineInputs) {
-          const inputs = ['start', 'trigger', 'click', 'pressed', 'button'];
-          for (const name of inputs) {
-            try {
-              const input = r.stateMachineInputs.find(name);
-              if (input) { input.fire(); break; }
-            } catch {}
-          }
-        }
+    document.addEventListener("click", () => {
+      if (!micEnabled) {
+        enableAudio();
+        drawBars();
       }
-    });
-
-    window.showVisualizer = () => { visualizerVisible = true; isAnimationPlaying = true; };
-    window.hideVisualizer = () => { visualizerVisible = false; isAnimationPlaying = false; };
+    }, { once: true });
   </script>
 </body>
 </html>
