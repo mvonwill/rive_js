@@ -39,7 +39,7 @@
     }
     #waveCanvas {
       position: absolute;
-      top: 260px;
+      top: 255px;
       left: 107px;
       width: 436px;
       height: 823px;
@@ -49,7 +49,7 @@
     }
     #clock-container {
       position: absolute;
-      top: 32px;
+      top: 30.5px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 3;
@@ -58,9 +58,9 @@
     }
     #digital-time {
       font-family: 'SansNormal', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
-      font-size: 23px;
+      font-size: 20.4px;
       font-weight: 600;
-      color: #4E4E4E;
+      color: #434343;
       letter-spacing: 0.02em;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -73,7 +73,7 @@
       top: -0.05em;
       margin-left: 0.0em;
       margin-right: 0;
-      letter-spacing: 0;
+      letter-spacing: 0; 
     }
     canvas {
       image-rendering: auto;
@@ -136,7 +136,7 @@
 
     try {
       r = new rive.Rive({
-        src: 'https://raw.githubusercontent.com/mvonwill/rive_js/main/assets/biometric_scan_JS.riv',
+        src: './biometric_scan_JS.riv',
         canvas: riveCanvas,
         autoplay: true,
         artboard: 'MAIN WIP',
@@ -162,25 +162,37 @@
 
     let eventCount = 0;
     let isAnimationPlaying = false;
+    let visualizerScheduled = false;
 
     function onRiveEventReceived(e) {
       eventCount++;
       const eventName = e.data?.name || e.name;
       
       if (eventName === 'show_mic') {
-        console.log(`Show mic event (#${eventCount}) - delayed 800ms fade-in`);
-        isAnimationPlaying = true;
+        console.log(`Show mic event (#${eventCount})`);
+        
+        // Only schedule if not already scheduled
+        if (!visualizerScheduled) {
+          console.log(`Scheduling visualizer fade-in for 1950ms`);
+          isAnimationPlaying = true;
+          visualizerScheduled = true;
 
-        clearTimeout(showMicTimeout);
-        showMicTimeout = setTimeout(() => {
-          visualizerVisible = true;
-        }, 800);
+          clearTimeout(showMicTimeout);
+          showMicTimeout = setTimeout(() => {
+            console.log(`Visualizer fade-in triggered`);
+            visualizerVisible = true;
+            visualizerScheduled = false;
+          }, 1950);
+        } else {
+          console.log(`Visualizer already scheduled - ignoring duplicate show_mic`);
+        }
 
       } else if (eventName === 'hide_mic') {
         console.log(`Hide mic event (#${eventCount}) - hiding visualizer`);
         clearTimeout(showMicTimeout);
         visualizerVisible = false;
         isAnimationPlaying = false;
+        visualizerScheduled = false;
       }
     }
 
